@@ -1,4 +1,10 @@
-import { createContext, ReactNode, useContext, useState } from 'react';
+import {
+  createContext,
+  ReactNode,
+  useContext,
+  useState,
+  useEffect,
+} from 'react';
 import { toast } from 'react-toastify';
 import { api } from '../services/api';
 import { Product, Stock } from '../types';
@@ -23,28 +29,71 @@ const CartContext = createContext<CartContextData>({} as CartContextData);
 
 export function CartProvider({ children }: CartProviderProps): JSX.Element {
   const [cart, setCart] = useState<Product[]>(() => {
-    // const storagedCart = Buscar dados do localStorage
+    const storagedCart = localStorage.getItem('@RocketShoes:cart');
 
-    // if (storagedCart) {
-    //   return JSON.parse(storagedCart);
-    // }
+    if (storagedCart) {
+      return JSON.parse(storagedCart);
+    }
 
     return [];
   });
 
+  const loadProduct = async (productId: number) =>
+    await api.get(`/products/${String(productId)}`).then((res) => res.data);
+
+  const loadStockProduct = async (productId: number) =>
+    await api.get(`/stock/${String(productId)}`).then((res) => res.data);
+
   const addProduct = async (productId: number) => {
     try {
-      // TODO
-    } catch {
-      // TODO
+      const product = await api.get(`/products/${productId}`);
+      const productStock = await loadStockProduct(productId);
+      setCart((prevCart) => {
+        const cartProduct = prevCart.find((p) => p.id === productId);
+
+        if (!!cartProduct) {
+          if (!!productStock && cartProduct.amount < productStock.amount) {
+            const newCartWithoutSelectedProduct = prevCart.filter(
+              (p) => p.id !== productId
+            );
+            const newCart = [
+              ...newCartWithoutSelectedProduct,
+              {
+                ...cartProduct,
+                amount: cartProduct.amount + 1,
+              },
+            ];
+            localStorage.setItem('@RocketShoes:cart', JSON.stringify(newCart));
+            return newCart;
+          } else {
+            toast.error('Quantidade solicitada fora de estoque');
+            return prevCart;
+          }
+        } else {
+          const newCart = [...prevCart, { ...product.data, amount: 1 }];
+          localStorage.setItem('@RocketShoes:cart', JSON.stringify(newCart));
+          return newCart;
+        }
+      });
+    } catch (err) {
+      toast.error('Erro na adição do produto');
     }
   };
 
-  const removeProduct = (productId: number) => {
+  const removeProduct = async (productId: number) => {
     try {
-      // TODO
+      setCart((prevCart) => {
+        if (prevCart.filter((p) => p.id === productId).length) {
+          const newCart = prevCart.filter((p) => p.id !== productId);
+          localStorage.setItem('@RocketShoes:cart', JSON.stringify(newCart));
+          return newCart;
+        } else {
+          toast.error('Erro na remoção do produto');
+          return prevCart;
+        }
+      });
     } catch {
-      // TODO
+      toast.error('Erro na remoção do produto');
     }
   };
 
@@ -53,9 +102,30 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
     amount,
   }: UpdateProductAmount) => {
     try {
-      // TODO
+      const productStock = await loadStockProduct(productId);
+
+      setCart((prevCart) => {
+        if (amount <= 0 || (productStock && amount > productStock.amount)) {
+          toast.error('Quantidade solicitada fora de estoque');
+          return prevCart;
+        }
+
+        const newCart = prevCart.map((p) => {
+          if (p.id !== productId) {
+            return p;
+          } else {
+            return {
+              ...p,
+              amount,
+            };
+          }
+        });
+        localStorage.setItem('@RocketShoes:cart', JSON.stringify(newCart));
+
+        return newCart;
+      });
     } catch {
-      // TODO
+      toast.error('Erro na alteração de quantidade do produto');
     }
   };
 

@@ -40,9 +40,8 @@ describe('Cart Page', () => {
 
     const [incrementFirstProduct] = getAllByTestId('increment-product');
     const [, decrementSecondProduct] = getAllByTestId('decrement-product');
-    const [firstProductAmount, secondProductAmount] = getAllByTestId(
-      'product-amount'
-    );
+    const [firstProductAmount, secondProductAmount] =
+      getAllByTestId('product-amount');
 
     expect(firstProductAmount).toHaveDisplayValue('1');
     expect(secondProductAmount).toHaveDisplayValue('2');
